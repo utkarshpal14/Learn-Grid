@@ -9,67 +9,67 @@ load_dotenv()
 # Configure the Gemini API
 try:
     api_key = os.getenv("GEMINI_API_KEY")
+    print("Loaded API Key:", api_key[:6] + "..." if api_key else "None")
+
     if not api_key:
         raise ValueError("GEMINI_API_KEY not found. Please set it in the .env file.")
     genai.configure(api_key=api_key)
-    model = genai.GenerativeModel('gemini-pro')
+    model = genai.GenerativeModel('gemini-2.0-flash')
 except Exception as e:
     print(f"Error configuring Generative AI: {e}")
     model = None
 
+
 def generate_ai_roadmap(skill):
-    """
-    Uses the Gemini API to generate a learning roadmap with multiple resource types.
-    """
     if not model:
         return {"error": "Generative AI model is not configured. Check API key."}
 
-    # UPDATED PROMPT: Asks for a richer resources object
     prompt = f"""
-    You are an expert curriculum designer. Generate a step-by-step learning roadmap for the skill: "{skill}".
-    Break it down into logical modules and sub-topics.
-    For each sub-topic, provide a resources object containing simple search queries for YouTube, Coursera, Udemy, and a relevant type of article.
+    Generate ONLY valid JSON. Do NOT add any explanation or markdown. 
+    Skill: "{skill}"
 
-    Provide the output ONLY in a valid JSON format, following this structure:
+    JSON format:
     {{
       "skill": "{skill}",
       "modules": [
         {{
-          "title": "Module 1: ...",
+          "title": "Module 1: Basics",
           "subtopics": [
             {{
-              "title": "Sub-topic Title",
+              "title": "Sub-topic 1",
               "resources": {{
-                "youtube": "YouTube Search Query",
-                "udemy": "Udemy Course Search Query",
-                "coursera": "Coursera Course Search Query",
-                "articles": "Technical Article Search Query"
+                "youtube": "YouTube search query",
+                "udemy": "Udemy search query",
+                "coursera": "Coursera search query",
+                "articles": "Article search query"
               }}
             }}
           ]
         }}
       ]
     }}
-    
-    Do not include any text, explanation, or markdown formatting before or after the JSON object.
     """
+
     try:
         response = model.generate_content(prompt)
-        cleaned_response = response.text.strip().replace("```json", "").replace("```", "")
-        return json.loads(cleaned_response)
+        if not response.text:
+            return {"error": "Gemini returned empty response"}
+
+        cleaned = response.text.strip().replace("```json", "").replace("```", "")
+        return json.loads(cleaned)
     except Exception as e:
-        print(f"An error occurred during AI roadmap generation: {e}")
-        return {"error": f"Could not generate AI roadmap for '{skill}'."}
+        import traceback
+        traceback.print_exc()
+        return {"error": f"AI generation failed: {e}"}
 
 
 def generate_quiz(topic):
     """
-    NEW FUNCTION: Uses the Gemini API to generate a single quiz question.
+    Generates a single multiple-choice quiz question for a given topic.
     """
     if not model:
         return {"error": "Generative AI model is not configured. Check API key."}
 
-    # NEW PROMPT: Asks for a quiz question in a specific JSON format
     prompt = f"""
     You are a quiz designer. Create a single, simple multiple-choice question to test a beginner's knowledge on the topic: "{topic}".
     The question should have 4 options, with one being the correct answer.
@@ -85,8 +85,6 @@ def generate_quiz(topic):
       ],
       "answer": "The correct option text"
     }}
-
-    Do not include any text, explanation, or markdown formatting before or after the JSON object.
     """
     try:
         response = model.generate_content(prompt)
